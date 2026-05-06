@@ -1,18 +1,18 @@
 # 🤖 Web Scraping + AI Automation — Make.com Scenarios
 
-Ye project ek **2-part Make.com automation pipeline** hai jo automatically contact form responses ko process karta hai, unki websites scrape karta hai, aur AI se personalized email replies bhejta hai — bilkul human jaisi.
+This project is a **2-part Make.com automation pipeline** that automatically processes contact form submissions, scrapes the sender's website, and sends a personalized AI-generated email reply — all without any manual effort.
 
 ---
 
 ## 📋 Overview
 
-Jab koi banda Tally form fill karta hai apni details aur website URL ke saath, toh ye system:
+When someone fills out a Tally form with their details and website URL, this system:
 
-1. Data ko Google Sheets mein save karta hai
-2. Unki website ko automatically scrape karta hai (Browse AI)
-3. AI Agent se email likhta hai jo website ki details padhke personalized hoti hai
-4. Calendar check karke meeting schedule karta hai
-5. Gmail se reply send karta hai
+1. Saves their data to Google Sheets
+2. Automatically scrapes their website using Browse AI
+3. Uses an AI Agent to craft a personalized email based on their website content
+4. Checks the calendar and schedules a meeting
+5. Sends the reply via Gmail
 
 ---
 
@@ -30,44 +30,42 @@ web scrping ai automation/
 
 **Make.com Scenario Name:** `Integration Tally`
 
-### Kya karta hai?
+### What it does
 
-Tally form submit hone par user ka data capture karta hai aur unki website scrape karne ka kaam Browse AI ko deta hai.
+Captures user data when a Tally form is submitted and hands off their website URL to Browse AI for scraping.
 
 ### Flow Diagram
 
 ```
-Tally Form Submit
-       ↓
-Google Sheets mein row add karo
-       ↓
+Tally Form Submitted
+        ↓
+Add row to Google Sheets
+        ↓
 BasicRouter (URL format check)
-    ↙           ↘
-Route 1          Route 2
-(URL as-is)      (http:// prefix add karke)
-    ↓                ↓
-Browse AI        Browse AI
-executeTask      executeTask
-    ↓                ↓
-Sheets update    Sheets update
-(task ID save)   (task ID save)
+    ↙              ↘
+Route 1            Route 2
+(URL as-is)        (prepend http://)
+    ↓                  ↓
+Browse AI          Browse AI
+executeTask        executeTask
+    ↓                  ↓
+Update Sheet       Update Sheet
+(save task ID)     (save task ID)
 ```
 
-### Modules Detail
+### Module Details
 
-| Module ID | Service | Kaam |
-|-----------|---------|------|
-| `1` | `tally:watchNewResponse` | Tally form ka webhook — naya response aane par trigger |
-| `4` | `google-sheets:addRow` | Form data Google Sheet (`Scrap Web`) mein add karta hai |
-| `5` | `builtin:BasicRouter` | URL format ke hisaab se do routes mein split |
-| `6` | `browse-ai:executeTask` | Website scrape karta hai (URL as-is) |
-| `7` | `browse-ai:executeTask` | Website scrape karta hai (`http://` prefix ke saath) |
-| `8` | `google-sheets:updateRow` | Browse AI task ID column G mein save karta hai |
-| `10` | `google-sheets:updateRow` | Browse AI task ID column G mein save karta hai |
+| Module ID | Service | Description |
+|-----------|---------|-------------|
+| `1` | `tally:watchNewResponse` | Webhook trigger — fires when a new Tally form response is received |
+| `4` | `google-sheets:addRow` | Adds the form data as a new row in the `Scrap Web` Google Sheet |
+| `5` | `builtin:BasicRouter` | Splits into two routes based on URL format |
+| `6` | `browse-ai:executeTask` | Scrapes the website using the URL as-is |
+| `7` | `browse-ai:executeTask` | Scrapes the website with an `http://` prefix added |
+| `8` | `google-sheets:updateRow` | Saves the Browse AI task ID to column G (Route 1) |
+| `10` | `google-sheets:updateRow` | Saves the Browse AI task ID to column G (Route 2) |
 
 ### Tally Form Fields
-
-Form mein ye fields hain:
 
 | Field | Type | Sheet Column |
 |-------|------|-------------|
@@ -81,14 +79,14 @@ Form mein ye fields hain:
 
 ### Router Logic
 
-BasicRouter isliye hai kyunki users kabhi kabhi URL mein `http://` likhte hain aur kabhi nahi. Dono routes same Browse AI robot use karte hain lekin ek URL ko as-is bhejta hai aur doosra `http://` prefix add karta hai.
+The BasicRouter exists because users sometimes include `http://` in their URL and sometimes don't. Both routes use the same Browse AI robot — one sends the URL as entered, the other prepends `http://` to ensure the scraper can access it.
 
 ### Setup Requirements
 
-- ✅ Tally account + webhook configured
+- ✅ Tally account with webhook configured
 - ✅ Google Sheets file: **Scrap Web** (Spreadsheet ID: `1t_MVDqDSe9H6jvnZGKJqNI5lwYboUP-NNm_r0rm6PE8`)
 - ✅ Browse AI robot ID: `019dce51-796a-745f-8e3b-6cb9da02bfd8`
-- ✅ Google account connection in Make.com
+- ✅ Google account connected in Make.com
 
 ---
 
@@ -96,44 +94,41 @@ BasicRouter isliye hai kyunki users kabhi kabhi URL mein `http://` likhte hain a
 
 **Make.com Scenario Name:** `New scenario`
 
-### Kya karta hai?
+### What it does
 
-Jab Browse AI website scraping complete kar leta hai, ye scenario trigger hota hai. Phir AI Agent:
-- Client ki website analyze karta hai
-- Calendar check karke meeting book karta hai ya alternative times suggest karta hai
-- Personalized email likhta hai aur Gmail se bhejta hai
+Triggered when Browse AI finishes scraping a website. The AI Agent then analyzes the scraped content, schedules a meeting on the calendar, writes a personalized email, and sends it via Gmail.
 
 ### Flow Diagram
 
 ```
 Browse AI Task Finished (webhook)
-          ↓
-Google Sheets se matching row fetch karo
-(column G = task ID se match)
-          ↓
-AI Local Agent run karo
-    ├── Task 1: Meeting evaluate & schedule
-    │     ├── Spam/off-topic? → Skip scheduling
-    │     ├── Time available? → Google Meet event banao (30 min)
-    │     └── Time unavailable? → 2-3 alternative times suggest karo
-    ├── Task 2: Personalized email likho
-    │     ├── Website HTML analyze karo
-    │     ├── Business details reference karo (name, service, etc.)
-    │     └── Conversational, human-like tone rakho
-    └── Task 3: Gmail se email bhejo (HTML formatted)
+            ↓
+Fetch matching row from Google Sheets
+(match column G = task ID)
+            ↓
+Run AI Local Agent
+    ├── Task 1: Evaluate & Schedule
+    │     ├── Spam / off-topic? → Skip scheduling
+    │     ├── Time available? → Create 30-min Google Meet event
+    │     └── Time unavailable? → Suggest 2-3 alternative slots
+    ├── Task 2: Write Personalized Email
+    │     ├── Analyze website HTML for business details
+    │     ├── Reference 1-2 specific details (name, services, etc.)
+    │     └── Conversational, human-like tone
+    └── Task 3: Send Email via Gmail (HTML formatted)
 ```
 
-### Modules Detail
+### Module Details
 
-| Module ID | Service | Kaam |
-|-----------|---------|------|
-| `1` | `browse-ai:onTaskFinished` | Browse AI task complete hone par trigger |
-| `2` | `google-sheets:filterRows` | Column G mein task ID dhundh ke row nikalo |
-| `3` | `ai-local-agent:RunLocalAIAgent` | AI Agent run karta hai (model: large) |
+| Module ID | Service | Description |
+|-----------|---------|-------------|
+| `1` | `browse-ai:onTaskFinished` | Webhook trigger — fires when a Browse AI task completes |
+| `2` | `google-sheets:filterRows` | Finds the row where column G matches the finished task ID |
+| `3` | `ai-local-agent:RunLocalAIAgent` | Runs the AI Agent (model: large) |
 
 ### AI Agent — Full Task Breakdown
 
-AI Agent ko ye data milta hai:
+The AI Agent receives the following data from the matched sheet row:
 
 ```
 First Name    → Sheet column A
@@ -145,55 +140,55 @@ Message       → Sheet column F
 ```
 
 **Task 1 — Evaluate & Schedule:**
-- Pehle check karo: kya ye message spam hai ya meeting ki zaroorat hai?
-- Agar meeting appropriate hai:
-  - Availability: **Monday–Friday, 10:00 AM – 4:00 PM US Central Time**
-  - Agar time available: 30-minute Google Meet event create karo + agenda add karo
-  - Agar time unavailable: agli 5 working days mein 2-3 alternatives suggest karo
+- First, determine whether the message warrants a consultation. Skip scheduling if it's spam or off-topic.
+- If a meeting is appropriate:
+  - Availability window: **Monday–Friday, 10:00 AM – 4:00 PM US Central Time**
+  - If the requested time is available → Create a 30-minute Google Meet event with the contact as an invitee, including a brief agenda based on their message
+  - If unavailable → Propose 2–3 alternative times within the next 5 business days
 
 **Task 2 — Personalized Email:**
-- Website HTML se business samjho (naam, services, about page)
-- Reply mein 1-2 specific website details reference karo
-- Meeting confirm ya alternatives mention karo
-- 3-5 short paragraphs, conversational tone
+- Analyze the website HTML to understand the business (name, services, about page, personal details)
+- Reference 1–2 specific details from their site to make the email feel tailored
+- Confirm the meeting time or propose alternatives
+- Keep it to 3–5 short paragraphs with a conversational, human tone
 - Sign off: `Best wishes, Joe`
 
 **Task 3 — Send Email:**
-- Gmail se HTML email bhejo
-- Simple, human-like formatting
+- Send an HTML-formatted email via Gmail
+- Keep formatting simple — should feel like a quick human reply
 
-### AI Agent Rules (Hard Constraints)
+### AI Agent Hard Constraints
 
 ```
-❌ "I hope this email finds you well" — bilkul nahi likhna
-❌ Bullet points, numbered lists, ya em dashes use mat karo
-❌ Over-compliment ya sycophantic mat bano
-❌ Ye mat batao ke tum AI ho ya HTML analyze kar rahe ho
-❌ Availability window ke bahar kabhi schedule mat karo
+❌ Never open with "I hope this email finds you well" or similar clichés
+❌ No bullet points, numbered lists, or em dashes in the reply
+❌ Do not over-compliment or sound sycophantic
+❌ Never reveal that you are an AI or mention analyzing their HTML
+❌ Never schedule outside the defined availability window
 ```
 
 ### Setup Requirements
 
 - ✅ Browse AI webhook (`onTaskFinished`) configured
-- ✅ Same Google Sheet se connected (`1t_MVDqDSe9H6jvnZGKJqNI5lwYboUP-NNm_r0rm6PE8`)
+- ✅ Same Google Sheet connected (`1t_MVDqDSe9H6jvnZGKJqNI5lwYboUP-NNm_r0rm6PE8`)
 - ✅ AI Local Agent (large model) configured in Make.com
-- ✅ Google Calendar access (AI Agent ke liye)
-- ✅ Gmail access (AI Agent ke liye)
+- ✅ Google Calendar access granted to the AI Agent
+- ✅ Gmail access granted to the AI Agent
 
 ---
 
 ## 🔗 How Both Scenarios Connect
 
 ```
-[Scenario 1]                          [Scenario 2]
-Tally Form                            Browse AI
-Submit ──→ Sheet Row ──→ Scrape ──→   Webhook ──→ Match Row ──→ AI Agent ──→ Email Sent
-                          Task ID               by Task ID
+[Scenario 1]                               [Scenario 2]
+Tally Form                                 Browse AI
+Submit ──→ Sheet Row ──→ Scrape ──→        Webhook ──→ Match Row ──→ AI Agent ──→ Email Sent
+                          Task ID                    by Task ID
                           saved in
                           Column G
 ```
 
-Dono scenarios **Column G (Browse AI Task ID)** ke zariye linked hain. Scenario 1 task ID save karta hai, Scenario 2 us ID se matching row dhundh ke AI ko deta hai.
+Both scenarios are linked via **Column G (Browse AI Task ID)**. Scenario 1 saves the task ID after triggering the scrape. Scenario 2 uses that same ID to find the correct row and pass all the data to the AI Agent.
 
 ---
 
@@ -211,35 +206,35 @@ Dono scenarios **Column G (Browse AI Task ID)** ke zariye linked hain. Scenario 
 
 ---
 
-## 🚀 How to Import & Setup
+## 🚀 How to Import & Set Up
 
-1. **Scenario 1 import karein:**
-   - Make.com open karein → New Scenario → Import Blueprint
-   - `Part1.txt` file upload karein
-   - Apne connections set karein: Tally, Google Sheets, Browse AI
+1. **Import Scenario 1:**
+   - Open Make.com → Create New Scenario → Import Blueprint
+   - Upload `Part1.txt`
+   - Connect your accounts: Tally, Google Sheets, Browse AI
 
-2. **Scenario 2 import karein:**
-   - Same steps → `Part2.txt` file upload karein
-   - Connections set karein: Browse AI, Google Sheets, AI Agent, Gmail, Google Calendar
+2. **Import Scenario 2:**
+   - Same steps → Upload `Part2.txt`
+   - Connect: Browse AI, Google Sheets, AI Agent, Gmail, Google Calendar
 
-3. **Google Sheet setup karein:**
+3. **Set up the Google Sheet:**
    - Sheet name: `Sheet1`
    - Column headers: `First Name | Last Name | Phone Number | Email | URL | Message | Task ID`
 
-4. **Browse AI Robot configure karein:**
-   - Robot ID `019dce51-796a-745f-8e3b-6cb9da02bfd8` apne account mein import/recreate karein
-   - Website scraping task set karein (page HTML capture karna hai)
+4. **Configure the Browse AI Robot:**
+   - Recreate or import robot ID `019dce51-796a-745f-8e3b-6cb9da02bfd8` in your Browse AI account
+   - Set the task to capture full page HTML from the provided URL
 
-5. **Dono scenarios activate karein** aur Tally form se test submission karein.
+5. **Activate both scenarios** and submit a test entry via the Tally form to verify the full pipeline.
 
 ---
 
 ## ⚠️ Important Notes
 
-- Scenario 1 aur Scenario 2 **alag-alag** Make.com scenarios hain — dono ka apna trigger hai
-- Browse AI task ID hi inhe ek doosre se connect karta hai (Column G)
-- AI Agent ka model `large` set hai — agar cost concern hai toh `small` try kar sakte hain lekin quality affect hogi
-- Email response mein AI apne aap ko AI reveal nahi karta — ye by-design hai
+- Scenario 1 and Scenario 2 are **separate Make.com scenarios** — each has its own trigger
+- The Browse AI Task ID in Column G is what links the two scenarios together
+- The AI Agent model is set to `large` — switching to `small` may reduce costs but could affect reply quality
+- The AI is intentionally designed to never reveal it is an AI in the email response
 
 ---
 
